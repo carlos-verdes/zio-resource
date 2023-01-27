@@ -1,5 +1,6 @@
 import Dependencies._
 import Libraries._
+import ReleaseTransformations._
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
@@ -63,8 +64,8 @@ lazy val root =
       libraryDependencies ++= (commonLibs ++ testLibs ++ Seq(zioSchema, zioArangodb, shapeless)),
       testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")),
       releasePublishArtifactsAction := PgpKeys.publishSigned.value,
-      headerLicense := Some(HeaderLicense.MIT("2023", "Carlos Verdes", HeaderLicenseStyle.SpdxSyntax)),
-      headerLicenseStyle := HeaderLicenseStyle.SpdxSyntax)
+      headerLicense := Some(HeaderLicense.MIT("2023", "Carlos Verdes", HeaderLicenseStyle.SpdxSyntax))
+    )
     .enablePlugins(AutomateHeaderPlugin)
 
 ThisBuild / coverageExcludedFiles := ".*Main.*;zio\\.json\\.*"
@@ -75,9 +76,25 @@ addCommandAlias("testAll", ";compile;test;stryker")
 //addCommandAlias("sanity", ";compile;scalafmtAll;test;stryker")
 addCommandAlias("sanity", ";clean;coverage;compile;headerCreate;scalafixAll;scalafmtAll;test;it:test;coverageAggregate;coverageOff")
 
-ThisBuild / publishMavenStyle := true
+ThisBuild / publishMavenStyle.withRank(KeyRanks.Invisible) := true
 ThisBuild / publishTo := {
   val nexus = "https://s01.oss.sonatype.org/"
   if (isSnapshot.value) Some("snapshots" at nexus + "content/repositories/snapshots")
   else Some("releases" at nexus + "service/local/staging/deploy/maven2")
 }
+
+//see: https://github.com/sbt/sbt-release#release-process && https://stackoverflow.com/a/65519285
+releaseProcess := Seq[ReleaseStep](
+  checkSnapshotDependencies,              // : ReleaseStep
+  inquireVersions,                        // : ReleaseStep
+  runClean,                               // : ReleaseStep
+  runTest,                                // : ReleaseStep
+  setReleaseVersion,                      // : ReleaseStep
+  //commitReleaseVersion,                   // : ReleaseStep, performs the initial git checks
+  tagRelease,                             // : ReleaseStep
+  publishArtifacts,                       // : ReleaseStep, checks whether `publishTo` is properly set up
+  //releaseStepTask(publish in Docker),     // : ReleaseStep, publish the docker image in your specified repository(e.i. Nexus)
+  //setNextVersion,                         // : ReleaseStep
+  //commitNextVersion,                      // : ReleaseStep
+  pushChanges                             // : ReleaseStep, also checks that an upstream branch is properly configured
+)
