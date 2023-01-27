@@ -1,27 +1,25 @@
 name: 'Release'
 
 on:
-  pull_request:
-    types:
-      - opened
-      - edited
-      - reopened
-      - synchronize
+  workflow_dispatch:
 
 jobs:
 
-  sanity:
+  release:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v3
-      - uses: olafurpg/setup-scala@v13
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: setup-scala
+        uses: olafurpg/setup-scala@v13
         with:
           java-version: temurin@17.0.5=tgz+https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.5%2B8/OpenJDK17U-jdk_x64_linux_hotspot_17.0.5_8.tar.gz
-      - uses: crazy-max/ghaction-import-gpg@v5
+      - name: import-gpg
+        uses: crazy-max/ghaction-import-gpg@v5
         with:
           gpg_private_key: ${{ secrets.GPG_KEY }}
-      - name: Release
+      - name: release
         run: "sbt release with-defaults"
