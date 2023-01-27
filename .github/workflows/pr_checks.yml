@@ -10,7 +10,7 @@ on:
 
 jobs:
 
-  cmd:
+  sanity:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
