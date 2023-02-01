@@ -7,6 +7,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
       - uses: actions/checkout@v2
       - run: |
           git fetch --prune --unshallow --tags -f
@@ -20,6 +21,7 @@ jobs:
           branches: ${{ github.ref_name }}
           plugins: |
             ['@semantic-release/commit-analyzer', '@semantic-release/release-notes-generator', '@semantic-release/github']
+      - name: Output
         run: |
           echo "version=${{ steps.semantic.outputs.release-version }}" >> $GITHUB_ENV
           echo "published=${{ steps.semantic.outputs.new-release-published }}" >> $GITHUB_ENV
