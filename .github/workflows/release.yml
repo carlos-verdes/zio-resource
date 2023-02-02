@@ -21,18 +21,19 @@ jobs:
           branches: ${{ github.ref_name }}
           plugins: |
             ['@semantic-release/commit-analyzer', '@semantic-release/release-notes-generator', '@semantic-release/github']
-      - name: Output
+      - name: Semantic Result
+        id: result
         run: |
-          echo "version=${{ steps.semantic.outputs.release-version }}" >> $GITHUB_ENV
-          echo "published=${{ steps.semantic.outputs.new-release-published }}" >> $GITHUB_ENV
+          echo "version=${{ steps.semantic.outputs.release-version }}" >> $GITHUB_OUTPUT
+          echo "published=${{ steps.semantic.outputs.new-release-published }}" >> $GITHUB_OUTPUT
 
   publish:
-    # if: ${{ env.published }}
+    if: ${{ needs.release.result.outputs.published }}
     runs-on: ubuntu-latest
     needs: release
     env:
       rc-version: ${{ github.sha }}
-      version: ${{ env.version }}
+      version: ${{ needs.release.result.outputs.version }}
 
     steps:
       - name: checkout
@@ -48,4 +49,4 @@ jobs:
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
       - name: Publish to Nexus
         run: |
-          sbt "release release-version ${{ env.version }} with-defaults"
+          sbt "release release-version $version with-defaults"
