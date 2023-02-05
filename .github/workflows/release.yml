@@ -49,4 +49,4 @@ jobs:
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
       - name: Publish to Nexus
         run: |
-          sbt "release \"release-version $version with-defaults\""
+          "sbt \"release release-version $version with-defaults\""
