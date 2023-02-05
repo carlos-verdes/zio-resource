@@ -14,7 +14,7 @@ jobs:
           rm -rf .git/hooks/pre-push
       - name: Bump version and push tag
         id: semantic
-        uses: docker://ghcr.io/cycjimmy/semantic-release-action@v3
+        uses: cycjimmy/semantic-release-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
