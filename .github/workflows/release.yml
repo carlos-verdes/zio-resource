@@ -23,19 +23,17 @@ jobs:
       - run: echo "$OUTPUTS"
         env:
           OUTPUTS: ${{ toJson(steps.semantic.outputs) }}
-      - name: Semantic Result
-        id: result
-        run: |
-          echo "version=${{ steps.semantic.outputs.new_release_version }}" >> $GITHUB_OUTPUT
-          echo "published=${{ steps.semantic.outputs.new_release_published }}" >> $GITHUB_OUTPUT
+    outputs:
+      version: ${{ steps.semantic.outputs.new_release_version }}
+      published: ${{ steps.semantic.outputs.new_release_published }}
 
   publish:
-    if: ${{ needs.release.result.outputs.published }} == 'true'
+    if: ${{ needs.release.outputs.published }} == 'true'
     runs-on: ubuntu-latest
     needs: release
     env:
       rc-version: ${{ github.sha }}
-      version: ${{ needs.release.result.outputs.version }}
+      version: ${{ needs.release.outputs.version }}
 
     steps:
       - name: checkout
@@ -51,4 +49,4 @@ jobs:
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
       - name: Publish to Nexus
         run: |
-          sbt "release release-version $version with-defaults"
+          sbt "release \"release-version $version with-defaults\""
