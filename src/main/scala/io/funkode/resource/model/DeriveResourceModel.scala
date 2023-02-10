@@ -43,7 +43,7 @@ object DeriveResourceModel:
       case _: EmptyTuple => Nil
       case _: (t *: ts) =>
         val identifiable: Resource.Identifiable[t] = summonInline[Resource.Identifiable[t]]
-        identifiable.nid +: deriveCollectionNames[ts]
+        identifiable.resourceNid +: deriveCollectionNames[ts]
 
   inline def deriveCollections[T <: Tuple](collectionTypes: List[String]): List[CollectionModel] =
     inline erasedValue[T] match

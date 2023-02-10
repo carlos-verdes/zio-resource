@@ -34,12 +34,12 @@ case class Transaction(
 object Portfolio:
 
   given Resource.Identifiable[Network] with
-    def nid: String = "network"
+    def resourceNid: String = "network"
     def resourceNss(r: Network): String = r.id
     def resourceWithNss(n: Network)(newNss: String): Network = n.copy(id = newNss)
 
   given Resource.Identifiable[Transaction] with
-    def nid: String = "tx"
+    def resourceNid: String = "tx"
     def resourceNss(transaction: Transaction): String =
       s"${transaction.hash}@${transaction.network.nss}"
     def resourceWithNss(transaction: Transaction)(newNss: String): Transaction =

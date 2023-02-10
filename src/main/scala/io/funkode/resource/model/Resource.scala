@@ -8,6 +8,8 @@ package io.funkode.resource.model
 
 import scala.quoted.{Expr, Quotes, Type}
 
+import cats.Show
+import cats.syntax.show.toShow
 import io.lemonlabs.uri.Urn
 import zio.*
 import zio.json.*
@@ -16,7 +18,11 @@ import zio.schema.*
 import zio.schema.meta.MetaSchema
 import zio.stream.*
 
-type ResourceCall[R] = IO[ResourceError, R]
+type ResourceStream[R] = Stream[ResourceError, R]
+type ByteResourceStream = ResourceStream[Byte]
+
+enum ResourceFormat:
+  case Json
 
 opaque type Etag = String
 object Etag:
@@ -34,40 +40,59 @@ enum ResourceError(msg: String, cause: Option[Throwable] = None) extends Throwab
 case class ResourceLink(urn: Urn, rel: String, attributes: Map[String, String] = Map.empty)
 type ResourceLinks = Map[String, ResourceLink]
 
-trait Resource[Encoder[_], Decoder[_], Body]:
+trait Resource:
 
   def id: Urn
 
-  def body: Body
-  def deserialize[R: Decoder]: ResourceCall[R]
+  def body: ByteResourceStream
 
-  // TODO add type/schema
-  def etag: Option[Etag]
+  def format: ResourceFormat = ResourceFormat.Json
+
+  def etag: Option[Etag] = None
 
   def links: ResourceLinks = Map.empty
 
+  override def equals(thatAny: Any): Boolean =
+    if thatAny.isInstanceOf[Resource] then
+      val that = thatAny.asInstanceOf[Resource]
+      this.id == that.id &&
+      this.format == that.format &&
+      ((this.etag, that.etag) match
+        case (Some(thisEtag), Some(thatEtag)) => thisEtag == thatEtag
+        case _                                => true
+      )
+    else false
+
 object Resource:
+
+  given Show[Resource] = new Show[Resource]:
+    def show(r: Resource): String =
+      s"""Resource(${r.id}, ${r.format}${r.etag
+          .map(e => ", etag: \"" + e + "\"")
+          .getOrElse("")})"""
+
+  /*
+  trait Of[R] extends Resource, Identifiable[R]:
+
+    def innerInstance: R
+
+    override def id: Urn = Urn.parse(s"urn:$resourceNid:${resourceNss(innerInstance)}")
+
+    def resourceNid: String
+    def resourceNss(r: R): String
+    def deserialize(): IO[ResourceError, R]
+   */
 
   trait Identifiable[R]:
     self =>
 
-    def nid: String
+    def resourceNid: String
     def resourceNss(r: R): String
-    def resourceUrn(r: R): Urn = Urn.parse(s"urn:$nid:${resourceNss(r)}")
+    def resourceUrn(r: R): Urn = Urn.parse(s"urn:$resourceNid:${resourceNss(r)}")
     def resourceWithNss(r: R)(newNss: String): R
 
     extension (r: R)
-      def nid: String = self.nid
+      def nid: String = self.resourceNid
       def nss: String = resourceNss(r)
       def urn: Urn = resourceUrn(r)
       def withNss(nss: String): R = resourceWithNss(r)(nss)
-
-trait ResourceCollection[Encoder[_], Decoder[_], Body]:
-
-  def currentPage: Int
-  def pageSize: Int
-
-  def hasNext(): Boolean
-  def next(): ResourceCall[List[Resource[Encoder, Decoder, Body]]]
-
-type JsonResource = Resource[JsonEncoder, JsonDecoder, Json]
