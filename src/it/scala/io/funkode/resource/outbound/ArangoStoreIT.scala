@@ -30,49 +30,51 @@ trait TransactionsExamples:
   val tx1Urn = Urn.parse("urn:tx:" + hash1 + "@" + ethNetworkUrn.nss)
 
   val ethNetwork = Network("eth", "1", "Ethereum Mainnet", "ETH")
-  val ethNetworkResource = new Resource:
-    def id: Urn = ethNetworkUrn
+  val ethNetwornJsonString =
+    """
+      |{
+      |  "id": "eth",
+      |  "chainId": "1",
+      |  "name": "Ethereum Mainnet",
+      |  "currency": "ETH"
+      |}
+      |""".stripMargin
 
-    def body: ByteResourceStream = ZStream.fromIterable("""
-        |{
-        |  "id": "eth",
-        |  "chainId": "1",
-        |  "name": "Ethereum Mainnet",
-        |  "currency": "ETH"
-        |}
-        |""".stripMargin.toCharArray.map(_.toByte))
+  val ethNetworkResource = Resource.apply(ethNetworkUrn, ZStream.fromIterable(ethNetwornJsonString.getBytes))
+
+  val tx1JsonString =
+    s"""
+       |{
+       |  "network": $ethNetwornJsonString,
+       |  "hash": "0x888333",
+       |  "timestamp": 1
+       |}
+       |""".stripMargin
 
   val tx1 = io.funkode.portfolio.model.Transaction(ethNetwork, hash1, timestamp1)
-  val tx1Resource = new Resource:
-    def id: Urn = tx1Urn
-
-    def body: ByteResourceStream = ZStream.fromIterable("""
-        |{
-        |  "network": "urn:network:eth",
-        |  "hash": "0x888333",
-        |  "timestamp": 1
-        |}
-        |""".stripMargin.toCharArray.map(_.toByte))
+  val tx1Resource = Resource.apply(tx1Urn, ZStream.fromIterable(tx1JsonString.getBytes()))
 
 object ArangoStoreIT extends ZIOSpecDefault with TransactionsExamples:
 
   override def spec: Spec[TestEnvironment, Any] =
     suite("Arango ResourceStore should")(test("Store transaction") {
       for
-        storedNetwork <- ResourceStore.store(ethNetworkResource)
-        _ <- storedNetwork.body.via(ZPipeline.utf8Decode).runHead.debug("storedNetwork: ")
-        fetchedNetwork <- ResourceStore.fetch(ethNetworkUrn)
-        _ <- fetchedNetwork.body.via(ZPipeline.utf8Decode).runHead.debug("fetchedNetwork: ")
-        storedTx <- ResourceStore.store(tx1Resource)
-        fetchedTx <- ResourceStore.fetch(tx1Urn)
-      yield assertTrue(storedTx == tx1Resource) &&
-        assertTrue(fetchedTx == tx1Resource) &&
-        assertTrue(storedNetwork == ethNetworkResource) &&
-        assertTrue(fetchedNetwork == ethNetworkResource)
+        storedNetworkResource <- ResourceStore.store(ethNetworkResource)
+        storedNetwork <- storedNetworkResource.of[Network].body
+        fetchedNetworkResource <- ResourceStore.fetch(ethNetworkUrn)
+        fetchedNetwork <- fetchedNetworkResource.of[Network].body
+        storedTxResource <- ResourceStore.store(tx1Resource)
+        storedTx <- storedTxResource.of[io.funkode.portfolio.model.Transaction].body
+        fetchedTxResource <- ResourceStore.fetch(tx1Urn)
+        fetchedTx <- fetchedTxResource.of[io.funkode.portfolio.model.Transaction].body
+      yield assertTrue(storedNetwork == ethNetwork) &&
+        assertTrue(storedNetwork == fetchedNetwork) &&
+        assertTrue(storedTx == tx1) &&
+        assertTrue(storedTx == fetchedTx)
     }).provideShared(
       Scope.default,
       ArangoConfiguration.default,
       Client.default,
-      ArangoClientJson.live,
+      ArangoClientJson.testContainers,
       ArangoResourceStore.derived[Portfolio]
     )

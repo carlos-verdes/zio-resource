@@ -42,6 +42,9 @@ object ResourceStore:
   def store(resource: Resource): WithResourceStore[Resource] =
     withStore(_.store(resource))
 
+  def link(leftUrn: Urn, relType: String, rightUrn: Urn): WithResourceStore[Unit] =
+    withStore(_.link(leftUrn, relType, rightUrn))
+
 /*
 trait JsonStore extends ResourceStore[JsonEncoder, JsonDecoder, Json]:
   override type DocResource = JsonResource
