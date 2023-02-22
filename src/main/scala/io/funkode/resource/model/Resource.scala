@@ -18,7 +18,7 @@ import zio.schema.*
 import zio.schema.meta.MetaSchema
 import zio.stream.*
 
-type ResourceStream[R] = Stream[Throwable, R]
+type ResourceStream[R] = Stream[ResourceError, R]
 type ByteResourceStream = ResourceStream[Byte]
 
 enum ResourceFormat:

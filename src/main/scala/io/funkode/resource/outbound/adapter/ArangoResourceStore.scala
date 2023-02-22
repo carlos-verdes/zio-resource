@@ -41,7 +41,7 @@ class ArangoResourceStore(db: ArangoDatabaseJson) extends ResourceStore:
       .document(urn)
       .readRaw()
       .handleErrors(Some(urn))
-      .map(stream => Resource.apply(urn, stream))
+      .map(stream => Resource.apply(urn, stream.handleStreamErrors(Some(urn))))
 
   def store(resource: Resource): ResourceApiCall[Resource] =
     resource.format match
@@ -77,7 +77,7 @@ class ArangoResourceStore(db: ArangoDatabaseJson) extends ResourceStore:
       .handleErrors()
       .map(_ => ())
 
-  def fetchRel(urn: Urn, relType: String): ResourceStream[Resource] =
+  def fetchRel(urn: Urn, relType: String): Stream[ResourceError, Resource] =
     db
       .query(
         Query("FOR v, e IN OUTBOUND @startVertex @@edge FILTER e._rel == @relType RETURN v")
@@ -108,13 +108,13 @@ object ArangoResourceStore:
     case e @ ArangoError(404, _, message, _) => ResourceError.NotFoundError(urn, Some(e))
     case e                                   => ResourceError.UnderlinedError(e)
 
-  extension [R](arangoIO: IO[ArangoError, R])
+  extension [R](io: IO[Throwable, R])
     def handleErrors(urn: Option[Urn] = None): ResourceApiCall[R] =
-      arangoIO.catchAll(t => ZIO.fail(handleArrangoErrors(urn, t)))
+      io.catchAll(t => ZIO.fail(handleArrangoErrors(urn, t)))
 
-  extension [R](arangoStream: Stream[ArangoError, R])
+  extension [R](stream: Stream[Throwable, R])
     def handleStreamErrors(urn: Option[Urn] = None): ResourceStream[R] =
-      arangoStream.catchAll(t => ZStream.fail(handleArrangoErrors(urn, t)))
+      stream.catchAll(t => ZStream.fail(handleArrangoErrors(urn, t)))
 
   extension (json: Json)
     def etag: Option[Etag] = json match

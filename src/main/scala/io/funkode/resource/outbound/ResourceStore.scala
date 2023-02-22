@@ -34,6 +34,7 @@ trait ResourceStore:
 object ResourceStore:
 
   type WithResourceStore[R] = ZIO[ResourceStore, ResourceError, R]
+  type WithResourceStreamStore[R] = ZStream[ResourceStore, ResourceError, R]
 
   def withStore[R](f: ResourceStore => WithResourceStore[R]) = ZIO.service[ResourceStore].flatMap(f)
 
@@ -44,6 +45,9 @@ object ResourceStore:
 
   def link(leftUrn: Urn, relType: String, rightUrn: Urn): WithResourceStore[Unit] =
     withStore(_.link(leftUrn, relType, rightUrn))
+
+  def fetchRel(urn: Urn, relType: String): WithResourceStreamStore[Resource] =
+    ZStream.service[ResourceStore].flatMap(_.fetchRel(urn, relType))
 
 /*
 trait JsonStore extends ResourceStore[JsonEncoder, JsonDecoder, Json]:
