@@ -23,10 +23,12 @@ trait PortfolioSampleModel:
       "portfolio",
       Map(
         "network" -> CollectionModel(
+          "network",
           s"$mainPackage.Network",
           List(RelModel("transactions", s"$mainPackage.Transaction", true))
         ),
         "tx" -> CollectionModel(
+          "tx",
           s"$mainPackage.Transaction",
           List(RelModel("network", s"$mainPackage.Network"))
         )

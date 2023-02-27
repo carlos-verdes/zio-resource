@@ -6,6 +6,7 @@
 
 package io.funkode.resource.model
 
+import scala.deriving.Mirror
 import scala.quoted.{Expr, Quotes, Type}
 
 import cats.Show
@@ -52,7 +53,36 @@ case class Resource(
 
 object Resource:
 
-  extension (r: Resource) def of[R: JsonDecoder]: Resource.Of[R] = fromRawResourceToTypedResource.apply(r)
+  def fromString(
+      id: Urn,
+      bodyString: String,
+      format: ResourceFormat = ResourceFormat.Json,
+      etag: Option[Etag] = None,
+      links: ResourceLinks = Map.empty
+  ): Resource = Resource(id, ZStream.fromIterable(bodyString.getBytes), format, etag, links)
+
+  extension (resource: Resource)
+    def of[R: JsonDecoder]: Resource.Of[R] = fromRawResourceToTypedResource.apply(resource)
+
+    /*
+    inline def normalize[R: Mirror.Of]: ResourceStream[Resource] =
+      val model = DeriveResourceModel.gen[R]
+
+      resource.format match
+        case ResourceFormat.Json =>
+          for json <- JsonDecoder[Json].decodeJsonStreamInput(resource.body).catchAll { case t: Throwable =>
+              ZIO.fail(ResourceError.SerializationError("not able to deserialize resource body", Some(t)))
+            }
+            JsonDecoder[Json].unsafeDecode()
+            resources <- json match
+              case Json.Obj(fields) => ???
+              case Json.Arr(elements) => ???
+              case Json.Bool(value) => ???
+              case Json.Str(value) => ???
+              case Json.Num(value) => ???
+              case Json.Null => ???
+          yield json
+     */
 
   case class Of[R](
       id: Urn,
@@ -60,6 +90,13 @@ object Resource:
       etag: Option[Etag] = None,
       links: ResourceLinks = Map.empty
   )
+
+  def fromCaseClass[R](
+      id: Urn,
+      typedBody: R,
+      etag: Option[Etag] = None,
+      links: ResourceLinks = Map.empty
+  ) = Resource.Of(id, ZIO.succeed(typedBody), etag, links)
 
   given fromRawResourceToTypedResource[R](using JsonDecoder[R]): Conversion[Resource, Resource.Of[R]] =
     resource =>
