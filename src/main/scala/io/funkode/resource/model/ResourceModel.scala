@@ -16,10 +16,10 @@ import zio.schema.meta.MetaSchema
 import outbound.*
 
 case class ResourceModel(name: String, collections: Map[String, CollectionModel] = Map.empty)
-case class CollectionModel(name: String, resourceType: String, rels: List[RelModel] = List.empty)
+case class CollectionModel(collectionName: String, resourceType: String, rels: List[RelModel] = List.empty)
 case class RelModel(rel: String, targetType: String, oneToMany: Boolean = false)
 
 object ResourceModel:
 
   extension (model: ResourceModel)
-    def collectionForUrn(urn: Urn): Option[CollectionModel] = model.collections.get(urn.nid)
+    inline def collectionForUrn(urn: Urn): Option[CollectionModel] = model.collections.get(urn.nid)
