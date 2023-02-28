@@ -26,4 +26,5 @@ Must be one of the following:
   * fix: correct reference to external resource - closes #10 #2
 * For feature: 
   * feat: add new awesome feature - closes #11 #3
-* For 
+* For breaking change: 
+  * break: introduce a horrible breaking change - closes #12 #4
