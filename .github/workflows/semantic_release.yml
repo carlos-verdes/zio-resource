@@ -31,6 +31,10 @@ jobs:
       - run: |
           git fetch --prune --unshallow --tags -f
           rm -rf .git/hooks/pre-push
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - run: npm install conventional-changelog-conventionalcommits
       - name: Bump version and push tag
         id: semantic
         uses: cycjimmy/semantic-release-action@v3
