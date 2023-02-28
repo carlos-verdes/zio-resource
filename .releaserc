@@ -1,3 +1,11 @@
 {
-   "plugins": ["@semantic-release/commit-analyzer", "@semantic-release/changelog", "@semantic-release/release-notes-generator", "@semantic-release/github"]
+   "plugins": [
+          ["@semantic-release/commit-analyzer", {
+            "preset": "angular",
+            "releaseRules": [
+              {"type": "break", "release": "major"}
+            ]
+          }],
+      "@semantic-release/changelog", "@semantic-release/release-notes-generator", "@semantic-release/github"
+   ]
 }
