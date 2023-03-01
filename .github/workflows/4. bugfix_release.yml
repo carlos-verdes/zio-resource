@@ -1,0 +1,52 @@
+name: '4. Bugfix Release'
+
+on:
+#  push:
+#    branches: [ fix/** ]
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  BRANCH_NAME: ${{ github.ref_name }}
+
+jobs:
+  full_feedback:
+    uses: ./.github/workflows/full_feedback.yml
+
+#  validate:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v3
+#        with:
+#          fetch-depth: 0
+#      - name: "Branch starts with fix/"
+#        run: |
+#          if [[ $BRANCH_NAME == fix/* ]]
+#          then
+#            echo "Running bug fix on fix/ branch, all good."
+#          else
+#            echo "Running bug fix on: $BRANCH_NAME, but must start with: fix/"
+#            exit 1
+#      - name: "Commit messages are compliant"
+#        run: |
+#          LAST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
+#          echo "Latest tag on branch: $BRANCH_NAME is: $LAST_TAG"
+#          MESSAGES=$(git log --pretty=format:'%s' $LAST_TAG..HEAD)
+#
+#          git checkout main
+#          dist=$(git log --oneline develop ^main | wc -l)
+#          echo "COMMIT_DISTANCE=$dist" >> $GITHUB_ENV
+#
+  release:
+    uses: ./.github/workflows/semantic_release.yml
+    with:
+      dry_run: false
+      branch: $BRANCH_NAME
+
+  publish:
+    needs: release
+    if: ${{ needs.create_release.outputs.published }} == 'true'
+    uses: ./.github/workflows/publish.yml
+    with:
+      isSnapshot: false
+    secrets: inherit
