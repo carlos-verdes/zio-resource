@@ -1,0 +1,29 @@
+name: 'Commit lint'
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  group: Branch-Environment-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  commit-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: commit-distance
+        run: |
+          git checkout main
+          dist=$(git log --oneline develop ^main | wc -l)
+          echo "COMMIT_DISTANCE=$dist" >> $GITHUB_ENV
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: ${{ env.COMMIT_DISTANCE }}
+      - uses: wagoid/commitlint-github-action@v5
+        with:
+          failOnWarnings: true
+          firstParent: false

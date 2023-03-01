@@ -10,9 +10,11 @@ env:
   BRANCH_NAME: ${{ github.ref_name }}
 
 jobs:
-  full_feedback:
-    uses: ./.github/workflows/2_full_feedback.yml
+  commit-lint:
+    uses: ./.github/workflows/commit_lint.yml
 
+  sanity:
+    uses: ./.github/workflows/sanity.yml
 #  validate:
 #    runs-on: ubuntu-latest
 #    steps:
@@ -38,10 +40,12 @@ jobs:
 #          echo "COMMIT_DISTANCE=$dist" >> $GITHUB_ENV
 #
   release:
+    needs: [ commit-lint, sanity ]
     uses: ./.github/workflows/semantic_release.yml
     with:
       dry_run: false
-      branch: $BRANCH_NAME
+      branch: ${{ github.ref_name }}
+    secrets: inherit
 
   publish:
     needs: release
