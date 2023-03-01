@@ -10,8 +10,8 @@ on:
         type: choice
         required: true
         options:
-          - develop
           - main
+          - develop
 
   workflow_call:
     inputs:
