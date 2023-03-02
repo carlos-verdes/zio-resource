@@ -4,10 +4,6 @@ on:
   workflow_dispatch:
   workflow_call:
 
-concurrency:
-  group: Branch-Environment-${{ github.ref_name }}
-  cancel-in-progress: false
-
 jobs:
   commit-lint:
     runs-on: ubuntu-latest
