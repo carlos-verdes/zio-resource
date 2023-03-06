@@ -1,24 +1,14 @@
-name: '1. Quick Feedback'
+name: 'Sanity'
 
 on:
-  pull_request:
-    types:
-      - opened
-      - edited
-      - reopened
-      - synchronize
-
-concurrency:
-  group: Branch-Environment-${{ github.head_ref }}
-  cancel-in-progress: true
+  workflow_dispatch:
+  workflow_call:
 
 jobs:
-
   sanity:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-
     steps:
       - name: checkout
         uses: actions/checkout@v3
