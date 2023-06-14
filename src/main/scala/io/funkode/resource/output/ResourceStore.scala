@@ -7,16 +7,8 @@
 package io.funkode.resource
 package output
 
-import scala.compiletime.*
-import scala.quoted.*
-
 import io.lemonlabs.uri.Urn
-import io.netty.util.internal.StringUtil
 import zio.*
-import zio.json.*
-import zio.json.ast.Json
-import zio.schema.*
-import zio.schema.meta.MetaSchema
 import zio.stream.*
 
 import io.funkode.resource.model.*
@@ -35,10 +27,7 @@ trait ResourceStore:
   def fetchRel(urn: Urn, relType: String): ResourceStream[Resource]
 
   def fetchOne(urn: Urn): ResourceApiCall[Resource] =
-    for
-      fetchOption <- fetch(urn).runHead
-      result <- ZIO.fromOption(fetchOption).orElseFail(ResourceError.NotFoundError(urn, None))
-    yield result
+    fetch(urn).runHead.someOrFail(ResourceError.NotFoundError(urn, None))
 
   inline def fetchAs[R: Resource.Addressable](urn: Urn): ResourceStream[Resource.Of[R]] =
     fetch(urn).map(_.of[R])
@@ -55,6 +44,18 @@ trait ResourceStore:
       inline typedResource: Resource.Of[R]
   ): ResourceApiCall[Resource] =
     save(typedResource.asJsonResource)
+
+  inline def fetchOneRel(urn: Urn, relType: String): ResourceApiCall[Resource] =
+    fetchRel(urn, relType).runHead.someOrFail(ResourceError.NotFoundError(urn, None))
+
+  inline def fetchRelAs[R: Resource.Addressable](urn: Urn, relType: String): ResourceStream[Resource.Of[R]] =
+    fetchRel(urn, relType).map(_.of[R])
+
+  inline def fetchOneRelAs[R: Resource.Addressable](
+      urn: Urn,
+      relType: String
+  ): ResourceApiCall[Resource.Of[R]] =
+    fetchOneRel(urn, relType).map(_.of[R])
 
 object ResourceStore:
 
@@ -89,6 +90,21 @@ object ResourceStore:
   ): WithResourceStore[Resource] =
     withStore(_.save(typedResource))
 
+  inline def fetchOneRel(urn: Urn, relType: String): WithResourceStore[Resource] =
+    withStore(_.fetchOneRel(urn, relType))
+
+  inline def fetchRelAs[R: Resource.Addressable](
+      urn: Urn,
+      relType: String
+  ): WithResourceStreamStore[Resource.Of[R]] =
+    withStreamStore(_.fetchRelAs[R](urn, relType))
+
+  inline def fetchOneRelAs[R: Resource.Addressable](
+      urn: Urn,
+      relType: String
+  ): WithResourceStore[Resource.Of[R]] =
+    withStore(_.fetchOneRelAs[R](urn, relType))
+
   def delete(urn: Urn): WithResourceStore[Unit] = withStore(_.delete(urn))
 
   def link(leftUrn: Urn, relType: String, rightUrn: Urn): WithResourceStore[Unit] =
@@ -97,10 +113,24 @@ object ResourceStore:
   def fetchRel(urn: Urn, relType: String): WithResourceStreamStore[Resource] =
     withStreamStore(_.fetchRel(urn, relType))
 
+  extension [R, A](resourceIO: ZIO[R, ResourceError, Resource.Of[A]])
+    def body: ZIO[R, ResourceError, A] =
+      resourceIO.flatMap(_.body)
+
+  extension [R, A](resourceIO: ZIO[R, ResourceError, A])
+    def ifNotFound(f: ResourceError.NotFoundError => ZIO[R, ResourceError, A]): ZIO[R, ResourceError, A] =
+      resourceIO.catchSome { case e: ResourceError.NotFoundError => f(e) }
+
+  extension [A](inline resourceIO: WithResourceStore[Resource.Of[A]])
+    inline def saveIfNotFound(inline alternativeResource: => A)(using
+        Addressable[A]
+    ): WithResourceStore[Resource.Of[A]] =
+      resourceIO.ifNotFound(_ => ResourceStore.save(alternativeResource))
+
   trait InMemoryStore extends ResourceStore:
 
     private val storeMap: collection.mutable.Map[Urn, Resource] = collection.mutable.Map.empty
-    private val linksMap: collection.mutable.Map[Urn, collection.mutable.Map[String, Resource]] =
+    private val linksMap: collection.mutable.Map[Urn, collection.mutable.Map[String, Chunk[Resource]]] =
       collection.mutable.Map.empty
 
     def resourceModel: ResourceModel = ResourceModel("in-mem", Map.empty)
@@ -112,7 +142,11 @@ object ResourceStore:
       ZIO.fromOption(storeMap.put(resource.urn, resource)).orElse(ZIO.succeed(resource))
 
     def delete(urn: Urn): ResourceApiCall[Unit] =
-      ZIO.succeed(linksMap.remove(urn)) *>
+      ZIO.succeed {
+        linksMap
+          .mapValuesInPlace((_, rels) => rels.mapValuesInPlace((_, relRes) => relRes.filter(_.urn != urn)))
+          .remove(urn)
+      } *>
         ZIO.fromOption(storeMap.remove(urn)).orElseFail(ResourceError.NotFoundError(urn)) *>
         ZIO.succeed(())
 
@@ -123,21 +157,21 @@ object ResourceStore:
           ZIO
             .fromOption(storeMap.get(rightUrn))
             .orElseFail(ResourceError.NotFoundError(rightUrn))
+
         _ <-
-          ZIO.succeed(
-            linksMap
-              .getOrElseUpdate(leftUrn, collection.mutable.Map.empty)
-              .put(relType, rightResource)
-              .getOrElse(rightResource)
-          )
+          ZIO.succeed:
+            val relatedMap = linksMap.getOrElseUpdate(leftUrn, collection.mutable.Map.empty)
+            val existingLinks = relatedMap.getOrElseUpdate(relType, Chunk.empty)
+            relatedMap.put(relType, existingLinks :+ rightResource)
       yield ()
 
     def fetchRel(urn: Urn, relType: String): ResourceStream[Resource] =
-      ZStream.fromZIO(
-        ZIO
-          .fromOption(linksMap.get(urn).map(_.get(relType)).flatten)
-          .orElseFail(
+      linksMap.get(urn).map(_.get(relType)) match
+        case Some(Some(rels)) => ZStream.fromChunk(rels)
+        case _ =>
+          ZStream.fail(
             ResourceError
               .NotFoundError(urn, Some(new Throwable(s"Rel type $relType not found for urn: $urn")))
           )
-      )
+
+  def inMemory: ZLayer[Any, ResourceError, ResourceStore] = ZLayer(ZIO.succeed(new InMemoryStore {}))

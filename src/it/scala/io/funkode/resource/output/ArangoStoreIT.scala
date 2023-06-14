@@ -3,18 +3,15 @@ package output
 
 import io.funkode.arangodb.*
 import io.funkode.arangodb.http.*
-import io.funkode.arangodb.http.JsonCodecs.given
-import io.lemonlabs.uri.{Url, Urn}
+import io.lemonlabs.uri.Urn
 import zio.*
 import zio.json.*
-import zio.json.ast.Json
 import zio.http.*
 import zio.test.*
 import adapter.ArangoResourceStore
 import io.funkode.portfolio
 import io.funkode.portfolio.model.*
 import io.funkode.resource.model.*
-import io.funkode.resource.model.given
 import io.funkode.resource.model.Resource.*
 import zio.stream.*
 
@@ -97,23 +94,25 @@ object ArangoStoreIT extends ZIOSpecDefault with TransactionsExamples:
           _ <- ResourceStore.link(tx1.urn, "network", ethNetwork.urn)
           _ <- ResourceStore.link(tx2.urn, "network", ethNetwork.urn)
           networkTransactions <- ResourceStore
-            .fetchRel(ethNetwork.urn, "transactions")
-            .mapZIO(_.of[Transaction].body)
-            .run(ZSink.collectAll)
-          transactionNetworkResource <- ResourceStore.fetchRel(tx1.urn, "network").run(ZSink.head)
-          transactionNetwork <- transactionNetworkResource
-            .map(_.of[Network].body)
-            .getOrElse(throw new Exception())
-          _ <- ZIO.unit
+            .fetchRelAs[Transaction](ethNetwork.urn, "transactions")
+            .mapZIO(_.body)
+            .runCollect
+          transactionNetworkResource <- ResourceStore.fetchOneRelAs[Network](tx1.urn, "network")
+          transactionNetwork <- transactionNetworkResource.body
+          _ <- ResourceStore.delete(tx1.urn)
+          netWorkTransactionsAfterDelete <- ResourceStore
+            .fetchRelAs[Transaction](ethNetwork.urn, "transactions")
+            .mapZIO(_.body)
+            .runCollect
         yield assertTrue(storedNetwork == ethNetwork) &&
           assertTrue(storedNetwork == fetchedNetwork) &&
           assertTrue(fetchedNetworkResource.etag.nonEmpty) &&
           assertTrue(storedTx == tx1) &&
           assertTrue(storedTx == fetchedTx) &&
-          assertTrue(transactionNetworkResource.map(_.urn) == Some(ethNetworkUrn)) &&
+          assertTrue(transactionNetworkResource.urn == ethNetworkUrn) &&
           assertTrue(transactionNetwork == ethNetwork) &&
-          assertTrue(networkTransactions.sortBy(_.timestamp) == Chunk(tx1, tx2))
-
+          assertTrue(networkTransactions.sortBy(_.timestamp) == Chunk(tx1, tx2)) &&
+          assertTrue(netWorkTransactionsAfterDelete == Chunk(tx2))
       },
       test("Manage not found error in raw resource") {
         val fakeUrn = Urn.parse("urn:network:doesnt:exist")
