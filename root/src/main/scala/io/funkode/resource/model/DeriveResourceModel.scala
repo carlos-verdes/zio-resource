@@ -13,11 +13,6 @@ object DeriveResourceModel:
 
   import DerivationUtils.*
 
-  transparent inline def decapitalize(inline str: String): String =
-    inline str match
-      case null | "" => str
-      case nonEmpty  => s"${nonEmpty.head.toLower}${nonEmpty.tail}"
-
   inline given gen[R](using m: Mirror.Of[R]): ResourceModel =
     inline val resourceModelLabel = constValue[m.MirroredLabel]
 
