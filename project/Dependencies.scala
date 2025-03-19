@@ -21,7 +21,7 @@ object Dependencies {
     val zioArangodbV = "0.3.6"
 
     val logBackV = "1.4.11"
-    val scalaUriV = "4.0.3"
+    val scalaUriV = "4.2.0"
     val scodecV = "2.2.0"
     val testContainersV = "0.41.0"
 
@@ -55,7 +55,7 @@ object Dependencies {
     val logBack = "ch.qos.logback" % "logback-classic" % logBackV
     val jansi = "org.fusesource.jansi" % "jansi" % "2.4.0"
     val testContainers = "com.dimafeng" %% "testcontainers-scala-core" % testContainersV
-    val scalaUri = "io.lemonlabs" %% "scala-uri" % scalaUriV
+    val scalaUri = "com.indoorvivants" %% "scala-uri" % scalaUriV
     val scodecBits = "org.scodec" %% "scodec-bits" % scodecV
     val scodecCore = "org.scodec" %% "scodec-core" % scodecV
 
